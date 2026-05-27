@@ -116,7 +116,7 @@ if prompt := st.chat_input("법령·판례 관련 질문을 입력하세요...")
                 client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
                 response = client.beta.messages.create(
-                    model="claude-sonnet-4-20250514",
+                    model="claude-sonnet-4-5",
                     max_tokens=4096,
                     system=SYSTEM_PROMPT,
                     messages=[
