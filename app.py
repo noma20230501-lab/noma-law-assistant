@@ -1,6 +1,7 @@
 import streamlit as st
 import anthropic
 import os
+import httpx
 
 st.set_page_config(
     page_title="노마 법령 어시스턴트",
@@ -86,14 +87,16 @@ if prompt := st.chat_input("법령·판례 관련 질문을 입력하세요...")
         st.markdown(prompt)
 
     with st.chat_message("assistant"):
-        with st.spinner("법령·판례 조회 중..."):
+        with st.spinner("법령·판례 조회 중... (30초~1분 소요될 수 있습니다)"):
             try:
-                client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+                # 타임아웃 120초로 설정한 커스텀 httpx 클라이언트
+                http_client = httpx.Client(timeout=120.0)
+                client = anthropic.Anthropic(
+                    api_key=ANTHROPIC_API_KEY,
+                    http_client=http_client
+                )
 
-                full_response = ""
-                placeholder = st.empty()
-
-                with client.beta.messages.stream(
+                response = client.beta.messages.create(
                     model="claude-sonnet-4-5",
                     max_tokens=4096,
                     system=SYSTEM_PROMPT,
@@ -109,18 +112,18 @@ if prompt := st.chat_input("법령·판례 관련 질문을 입력하세요...")
                         }
                     ],
                     betas=["mcp-client-2025-04-04"]
-                ) as stream:
-                    for text in stream.text_stream:
-                        full_response += text
-                        placeholder.markdown(full_response + "▌")
+                )
 
-                placeholder.markdown(full_response)
+                answer = ""
+                for block in response.content:
+                    if hasattr(block, "type") and block.type == "text":
+                        answer += block.text
 
-                if not full_response:
-                    full_response = "응답을 받지 못했습니다. 다시 시도해 주세요."
-                    placeholder.markdown(full_response)
+                if not answer:
+                    answer = "응답을 받지 못했습니다. 다시 시도해 주세요."
 
-                st.session_state.messages.append({"role": "assistant", "content": full_response})
+                st.markdown(answer)
+                st.session_state.messages.append({"role": "assistant", "content": answer})
 
             except anthropic.APIStatusError as e:
                 st.error(f"API 오류 ({e.status_code}): {e.message}")
